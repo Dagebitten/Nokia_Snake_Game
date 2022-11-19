@@ -1,0 +1,51 @@
+#lang racket/gui
+
+(require "snake.rkt")
+
+(define FWIDTH 500)
+(define FHEIGHT 300)
+
+(define main-frame
+  (new frame%
+       (label "Snake")
+       (width FWIDTH)
+       (height FHEIGHT)
+       )
+  )
+
+(define game-canvas%
+  (class canvas%
+
+    (define/private (custom-paint-callback canvas dc)
+      ;Draw Background
+      (send dc set-pen (make-color 51 51 0) 8 'solid)
+      ; left line
+      (send dc draw-line  (/ FWIDTH 10) (/ FHEIGHT 10) (/ FWIDTH 10) (- FHEIGHT (/ FWIDTH 8)))
+      ; upper line
+      (send dc draw-line  (/ FWIDTH 10) (/ FHEIGHT 10) (* (/ FWIDTH 10) 8.5) (/ FHEIGHT 10))
+      ; bottom line
+      (send dc draw-line  (/ FWIDTH 10) (* (/ FHEIGHT 10) 8) (* (/ FWIDTH 10) 8.5) (* (/ FHEIGHT 10) 8))
+      ; right line
+      (send dc draw-line  (* (/ FWIDTH 10) 8.5) (/ FHEIGHT 10) (* (/ FWIDTH 10) 8.5) (- FHEIGHT (/ FWIDTH 8)))
+
+      ;Draw Snake
+      (send snake draw dc)
+      
+      ;Draw Food
+      
+      
+    )
+    (super-new
+     (paint-callback (lambda (canvas dc) (custom-paint-callback canvas dc)))
+     )
+    (send this set-canvas-background (make-color 145 220 40))
+     )
+    )
+
+(define main-canvas
+  (new game-canvas% (parent main-frame))
+  )
+
+(define snake (new snake% (snake-color 'green)))
+
+(send main-frame show #t)

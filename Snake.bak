@@ -1,0 +1,21 @@
+#lang racket/gui
+(define snake%
+  (class object%
+    (init-field (car-color 'red))
+
+    (define x-pos 0)
+    (define y-pos 0)
+    (define car-bitmap
+      [read-bitmap
+       "snake.png"
+       ]
+      )
+
+    
+    (super-new)
+
+
+    ;(define/public (draw dc))
+       ;(send dc)
+   ; )
+  )
