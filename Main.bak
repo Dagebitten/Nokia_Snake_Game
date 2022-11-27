@@ -1,51 +1,113 @@
 #lang racket/gui
+;MAIN CODE
+(require "Snake.rkt" "Food.rkt" "Grid.rkt" "Config.rkt")
+(define frame
+	(new frame% 
+		[label "Racket Snake"]
+		[min-width SCREEN_HEIGHT]
+		[min-height SCREEN_WIDTH]))
 
-(require "snake.rkt")
+(define game%
+  (class object%
+    (define isRunning #t)
+    (define frame-time (/ 1000 FPS))
+    (super-new)
 
-(define FWIDTH 500)
-(define FHEIGHT 300)
+    ; Public Methods
+       ; Update Method - All game events that need updating
+       (define/public (update)
+         (send snake move)
+         (when (send snake eating? (send food get-body))
+           (send snake grow)
+           (send food move)
+           (set! score (+ score 10)))
+         (when (send snake dying?)
+           (game-over)))
 
-(define main-frame
-  (new frame%
-       (label "Snake")
-       (width FWIDTH)
-       (height FHEIGHT)
-       )
+       ; Render DC Method - Draw on Canvas
+       (define/public (render dc)
+		(send dc clear)
+		(send dc set-scale 2 2)
+		(send snake draw dc)
+		(send food draw dc)
+		(draw-score dc)
+		(when (not isRunning)
+			(send dc draw-text "Game Over" 20 40)))
+    
+       ; Loop Method - For continously updating and rendering game objects
+       (define/public (loop)
+         (thread (lambda () (let inner-loop ()
+            ; Initilize loop start, Update Events, and Render Objects
+            (define start-time (current-inexact-milliseconds))
+            (update)
+            (render dc)
+            ; Calculate time
+            (define elapsed-time (- start-time (current-inexact-milliseconds)))
+            (define sleep-time (/ (- frame-time elapsed-time) 1000))
+               (cond [(> sleep-time 0)
+                      (sleep sleep-time)])
+            ; Loop game
+            (when isRunning
+               (inner-loop))))))
+
+    ; Private Methods
+       ; Score Draw Method - for drawing the score:
+       (define/private (draw-score dc)
+          (define str-score (string-append "Score: " (number->string score)))
+          (send dc draw-text str-score 20 20))
+
+       ; Game Over Method - for ending the game:
+       (define/private (game-over)
+          (set! isRunning #f))
+    
   )
+)
 
+;Game Canvas for Rendering Game Objects, Background, and Text
 (define game-canvas%
   (class canvas%
-
-    (define/private (custom-paint-callback canvas dc)
+    (define/private (paint-callback canvas dc)
       ;Draw Background
-      (send dc set-pen (make-color 51 51 0) 8 'solid)
-      ; left line
-      (send dc draw-line  (/ FWIDTH 10) (/ FHEIGHT 10) (/ FWIDTH 10) (- FHEIGHT (/ FWIDTH 8)))
-      ; upper line
-      (send dc draw-line  (/ FWIDTH 10) (/ FHEIGHT 10) (* (/ FWIDTH 10) 8.5) (/ FHEIGHT 10))
-      ; bottom line
-      (send dc draw-line  (/ FWIDTH 10) (* (/ FHEIGHT 10) 8) (* (/ FWIDTH 10) 8.5) (* (/ FHEIGHT 10) 8))
-      ; right line
-      (send dc draw-line  (* (/ FWIDTH 10) 8.5) (/ FHEIGHT 10) (* (/ FWIDTH 10) 8.5) (- FHEIGHT (/ FWIDTH 8)))
-
-      ;Draw Snake
-      (send snake draw dc)
-      
-      ;Draw Food
-      
-      
-    )
-    (super-new
-     (paint-callback (lambda (canvas dc) (custom-paint-callback canvas dc)))
-     )
-    (send this set-canvas-background (make-color 145 220 40))
-     )
+         (send dc set-pen (make-color 51 51 0) 8 'solid)
+         (send dc draw-line  (/ SCREEN_WIDTH 10) (/ SCREEN_HEIGHT 10) (/ SCREEN_WIDTH 10) (- SCREEN_HEIGHT (/ SCREEN_WIDTH 8))) ; left line
+         (send dc draw-line  (/ SCREEN_WIDTH 10) (/ SCREEN_HEIGHT 10) (* (/ SCREEN_WIDTH 10) 8.5) (/ SCREEN_HEIGHT 10)) ; upper line
+         (send dc draw-line  (/ SCREEN_WIDTH 10) (* (/ SCREEN_HEIGHT 10) 8) (* (/ SCREEN_WIDTH 10) 8.5) (* (/ SCREEN_HEIGHT 10) 8)) ; bottom line
+         (send dc draw-line  (* (/ SCREEN_WIDTH 10) 8.5) (/ SCREEN_HEIGHT 10) (* (/ SCREEN_WIDTH 10) 8.5) (- SCREEN_HEIGHT (/ SCREEN_WIDTH 8))) ; right line
     )
 
-(define main-canvas
-  (new game-canvas% (parent main-frame))
+    ; Overrided method for keyboard input
+	(define/override (on-char event)
+	(define code (send event get-key-code))
+	(cond
+		[(eq? code #\w) (send snake set-direction 'up)]
+		[(eq? code #\a) (send snake set-direction 'left)]
+                [(eq? code #\s) (send snake set-direction 'down)]
+		[(eq? code #\d) (send snake set-direction 'right)]
+                )
+          )
+
+    (super-new)
+    )
   )
 
-(define snake (new snake% (snake-color 'green)))
+; Create instance of custom canvas with paint-callback
+(define game-canvas
+  (new game-canvas%
+	[parent frame]
+	[paint-callback (lambda (canvas dc)
+		(send game render dc))])
 
-(send main-frame show #t)
+  )
+
+;Game Object/Variable Declarations and Game Loop Declaration
+(define snake (new snake% [body-arg (list (cons 0 0))]))
+(define food (new food%))
+(define score 0)
+(define game (new game%))
+(define dc (send game-canvas get-dc))
+
+;Start Game Loop
+(define game-thread (send game loop))
+
+;Render Screen
+(send frame show #t)
